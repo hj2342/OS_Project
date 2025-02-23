@@ -22,34 +22,53 @@ int main(){
         }
 
 
-        input[strcspn(input,"\n")]= 0;
+        input[strcspn(input,"\n")]= 0;//return the number of characters found in a string before any part of the specified characters are found
         if(strcmp(input,"exit")==0){
             break;
         }
 
-        char *token = strtok(input," ");
+        char *token = strtok(input," ");//splits a string into multiple pieces (referred to as "tokens") using delimiters
         char *args[MAX_ARGS];
         int i = 0;
-        int redirect = 0;
-        int fd = -1;
+        int redirect_out = 0;
+        int redirect_in=0;
+        int fd_out = -1;
+        int fd_in=-1;
         while (token!=NULL){
-            if(strcmp(token,">")==0){
-                redirect = 1;
+            if(strcmp(token,">")==0){// 0 if the two strings are equal
+                redirect_out = 1;
                 token = strtok(NULL," "); // get next filename 
                 if(token==NULL){
                     fprintf(stderr,"Error: No valid file included \n");
-                    redirect = 0;
+                    redirect_out = 0;
                     break;
                 }
-                fd = open(token,O_CREAT| O_WRONLY | O_TRUNC,0644);
-                if (fd==-1){
+                fd_out = open(token,O_CREAT| O_WRONLY | O_TRUNC,0644);
+                if (fd_out==-1){
                     perror("Error creating file");
                     break;
                 }
                 
                 break ;
                 
-            }else{
+            }else if(strcmp(token,"<")==0){
+                redirect_in=1;
+                token = strtok(NULL," "); // get next filename 
+                if(token==NULL){
+                    fprintf(stderr,"Error: No valid file included \n");
+                    redirect_in = 0;
+                    break;
+                }
+                fd_in=open(token,O_RDONLY);
+                if(fd_in==-1){
+                    perror("Error in opening input file");
+                    break;
+
+                }
+                break;
+            }
+            
+            else{
                 args[i++] = token;
             }
             
@@ -65,10 +84,14 @@ int main(){
 
         else if(child ==0){
     
-            if(redirect && fd!=-1){
-                dup2(fd,STDOUT_FILENO);
-                close(fd);
+            if(redirect_out && fd_out!=-1){
+                dup2(fd_out,STDOUT_FILENO);
+                close(fd_out);
             }
+            if(redirect_in && fd_in!=-1){
+                dup2(fd_in,STDIN_FILENO);
+                close(fd_in);
+            }            
             execvp(args[0], args);
             perror("execvp failed");
             exit(1);
