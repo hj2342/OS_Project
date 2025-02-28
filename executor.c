@@ -11,7 +11,10 @@ void execute_command(char *cmd) {
     int input_fd = -1, output_fd = -1, error_fd = -1;
     char *args[MAX_ARGS];
 
-    parse_command(cmd, args, &input_fd, &output_fd, &error_fd);
+    //parse_command(cmd, args, &input_fd, &output_fd, &error_fd);
+    if (parse_command(cmd, args, &input_fd, &output_fd, &error_fd) == -1) {
+        return;  // Do not execute the command
+    }
 
     if (args[0] == NULL) {
         fprintf(stderr, "Error: Empty command\n");
@@ -74,6 +77,7 @@ void execute_piped_commands(char **commands, int cmd_count) {
             char *args[MAX_ARGS];
 
             parse_command(commands[i], args, &input_fd, &output_fd, &error_fd);
+            
 
             if (i > 0) {
                 dup2(pipes[i - 1][0], STDIN_FILENO);
