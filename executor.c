@@ -20,6 +20,11 @@ void execute_command(char *cmd) {
         fprintf(stderr, "Error: Empty command\n");
         return;
     }
+    // Check if command is valid before forking
+    // if (access(args[0], X_OK) == -1 && strchr(args[0], '/') == NULL) {
+    //     fprintf(stderr, "Error: Command not found: %s\n", args[0]);
+    //     return;
+    // }
 
     pid_t pid = fork();
 
@@ -65,6 +70,16 @@ void execute_piped_commands(char **commands, int cmd_count) {
     }
 
     for (int i = 0; i < cmd_count; i++) {
+        if(strlen(commands[i]) == 0){
+            fprintf(stderr, "Error: Empty command between pipes.\n");
+            return;
+        }
+        // Check if the last pipe is missing a command
+        if (cmd_count > 0 && strlen(commands[cmd_count - 1]) == 0) {
+            fprintf(stderr, "Error: Missing command after pipe.\n");
+            return;
+        }
+        
         pids[i] = fork();
 
         if (pids[i] == -1) {

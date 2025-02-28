@@ -19,7 +19,7 @@ int parse_command(char *cmd, char **args, int *input_fd, int *output_fd, int *er
         if (strcmp(token, "<") == 0) {
             token = strtok(NULL, " ");
             if (token == NULL) {
-                fprintf(stderr, "Error: No file provided for input redirection\n");
+                fprintf(stderr, "Error: No file provided for input redirection.Usage: command < filename\n");
                 return -1;
             }
             *input_fd = open(token, O_RDONLY);
@@ -30,7 +30,7 @@ int parse_command(char *cmd, char **args, int *input_fd, int *output_fd, int *er
         } else if (strcmp(token, ">") == 0) {
             token = strtok(NULL, " ");
             if (token == NULL) {
-                fprintf(stderr, "Error: No file provided for output redirection\n");
+                fprintf(stderr, "Error: No file provided for output redirection.Usage: command > filename\n");
                 return -1;
             }
             *output_fd = open(token, O_CREAT | O_WRONLY | O_TRUNC, 0644);
@@ -41,7 +41,7 @@ int parse_command(char *cmd, char **args, int *input_fd, int *output_fd, int *er
         } else if (strcmp(token, "2>") == 0) {
             token = strtok(NULL, " ");
             if (token == NULL) {
-                fprintf(stderr, "Error: No file provided for error redirection\n");
+                fprintf(stderr, "Error: No file provided for error redirection. Usage: command 2> filename\n");
                 return -1;
             }
             *error_fd = open(token, O_CREAT | O_WRONLY | O_TRUNC, 0644);
