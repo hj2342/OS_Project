@@ -1,0 +1,15 @@
+total 328
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff    498 Feb 27 00:13 Makefile
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff     12 Feb 21 23:10 README.md
+-rwxr-xr-x  1 mahamadoumoudjahidmahamadounouroudini  staff  34546 Feb 24 15:28 a.out
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff   1726 Feb 27 00:05 command_parser.c
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff    190 Feb 27 00:05 command_parser.h
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff   4768 Feb 27 15:51 command_parser.o
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff   2896 Feb 27 00:06 executor.c
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff    140 Feb 27 00:04 executor.h
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff   6648 Feb 27 15:51 executor.o
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff   8144 Feb 27 00:11 main.c
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff   5200 Feb 27 15:51 main.o
+-rwxr-xr-x  1 mahamadoumoudjahidmahamadounouroudini  staff  35576 Feb 27 15:51 shell
+-rwxr-xr-x  1 mahamadoumoudjahidmahamadounouroudini  staff  34552 Feb 26 00:14 test
+-rw-r--r--  1 mahamadoumoudjahidmahamadounouroudini  staff      0 Feb 27 15:51 test.txt
