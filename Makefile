@@ -1,31 +1,28 @@
-# Compiler
-CC = gcc
-CFLAGS = -Wall -Wextra -g
+all: server client
 
-# Source files
-SRC = main.c command_parser.c executor.c
+server: main.o command_parser.o executor.o
+	gcc -Wall -Wextra -g -o server main.o command_parser.o executor.o
 
-# Object files
-OBJ = $(SRC:.c=.o)
+client: client.o
+	gcc -Wall -Wextra -g -o client client.o
 
-# Executable name
-TARGET = shell
+main.o: main.c
+	gcc -Wall -Wextra -g -c main.c
 
-# Default rule: build the executable
-all: $(TARGET)
+command_parser.o: command_parser.c
+	gcc -Wall -Wextra -g -c command_parser.c
 
-# Compile the executable
-$(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ)
+executor.o: executor.c
+	gcc -Wall -Wextra -g -c executor.c
 
-# Compile source files into object files
-%.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+client.o: client.c
+	gcc -Wall -Wextra -g -c client.c
 
-# Clean object files and executable
 clean:
-	rm -f $(OBJ) $(TARGET)
+	rm -f *.o server client
 
-# Run the shell
-run: $(TARGET)
-	./$(TARGET)
+run_server:
+	./server
+
+run_client:
+	./client
