@@ -79,351 +79,100 @@
 //     return 0;
 // }
 
+#include "executor.h" // Include the header file for the executor functions
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <string.h> 
+#include <sys/socket.h> 
+#include <arpa/inet.h> 
+#include <unistd.h> 
+#include <netinet/in.h> 
+#include <sys/wait.h> 
 
-
-//MOUJA
-// int main() {
-//     int server_fd, client_fd;
-//     struct sockaddr_in address;
-//     socklen_t addr_len = sizeof(address);
-
-//     // Create socket
-//     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-//         perror("socket creation failed");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     // Bind socket to address
-//     address.sin_family = AF_INET;
-//     address.sin_addr.s_addr = INADDR_ANY;
-//     address.sin_port = htons(PORT);
-
-//     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-//         perror("bind failed");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     if (listen(server_fd, 3) < 0) {
-//         perror("listen failed");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     printf("Server listening on port %d\n", PORT);
-
-//     // Accept a client connection
-//     if ((client_fd = accept(server_fd, (struct sockaddr *)&address, &addr_len)) < 0) {
-//         perror("accept failed");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     printf("Client connected.\n");
-
-//     char buffer[BUFFER_SIZE] = {0};
-
-//     while (1) {
-//         memset(buffer, 0, BUFFER_SIZE);
-
-//         // Read command from socket
-//         ssize_t valread = read(client_fd, buffer, BUFFER_SIZE - 1);
-//         if (valread <= 0) {
-//             printf("Client disconnected.\n");
-//             break;
-//         }
-
-//         buffer[strcspn(buffer, "\n")] = '\0';  // Remove newline if present
-//         printf("Received command: %s\n", buffer);
-
-//         if (strcmp(buffer, "exit") == 0) {
-//             printf("Exit command received. Closing connection.\n");
-//             break;
-//         }
-
-//         // Parse command(s)
-//         char *commands[MAX_CMDS];
-//         int cmd_count = 0;
-//         char *cmd = strtok(buffer, "|");
-
-//         while (cmd && cmd_count < MAX_CMDS) {
-//             // Trim whitespace
-//             while (*cmd == ' ') cmd++;
-//             char *end = cmd + strlen(cmd) - 1;
-//             while (end > cmd && *end == ' ') end--;
-//             *(end + 1) = '\0';
-
-//             if (strlen(cmd) == 0) {
-//                 fprintf(stderr, "Empty command found between pipes\n");
-//                 cmd_count = 0;
-//                 break;
-//             }
-
-//             commands[cmd_count++] = cmd;
-//             cmd = strtok(NULL, "|");
-//         }
-
-//         if (cmd_count == 0) continue;
-
-//         // Redirect output to pipe
-//         int pipefd[2];
-//         pipe(pipefd);
-
-//         pid_t pid = fork();
-//         if (pid == 0) {
-//             // Child process
-//             dup2(pipefd[1], STDOUT_FILENO);
-//             dup2(pipefd[1], STDERR_FILENO);
-//             close(pipefd[0]);
-//             close(pipefd[1]);
-
-//             if (cmd_count == 1) {
-//                 execute_command(commands[0]);
-//             } else {
-//                 execute_piped_commands(commands, cmd_count);
-//             }
-//             exit(0);
-//         } else {
-//             // Parent process
-//             close(pipefd[1]);
-//             wait(NULL);
-
-//             // Read command output from pipe
-//             char output[BUFFER_SIZE] = {0};
-//             ssize_t output_len = read(pipefd[0], output, BUFFER_SIZE - 1);
-//             close(pipefd[0]);
-
-//             // Send output back to client
-//             write(client_fd, output, output_len);
-//             printf("[OUTPUT] Sending output to client: %s\n", output);
-//         }
-//     }
-
-//     // Cleanup
-//     close(client_fd);
-//     close(server_fd);
-
-//     return 0;
-// }
-
-// #include "executor.h"
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <string.h>
-// #include <unistd.h>
-// #include <sys/socket.h>
-// #include <netinet/in.h>
-// #include <sys/wait.h>
-
-// #define PORT 8080
-// #define BUFFER_SIZE 4096
-
-// int main() {
-//     int server_fd, client_fd;
-//     struct sockaddr_in address;
-//     socklen_t addr_len = sizeof(address);
-
-//     // Create socket
-//     if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-//         perror("socket creation failed");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     // Bind socket to address
-//     address.sin_family = AF_INET;
-//     address.sin_addr.s_addr = INADDR_ANY;
-//     address.sin_port = htons(PORT);
-
-//     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-//         perror("bind failed");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     if (listen(server_fd, 3) < 0) {
-//         perror("listen failed");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     printf("[INFO] Server started, waiting for client connections...\n");
-
-//     // Accept a client connection
-//     if ((client_fd = accept(server_fd, (struct sockaddr *)&address, &addr_len)) < 0) {
-//         perror("accept failed");
-//         exit(EXIT_FAILURE);
-//     }
-
-//     printf("[INFO] Client connected.\n");
-
-//     char buffer[BUFFER_SIZE] = {0};
-
-//     while (1) {
-//         memset(buffer, 0, BUFFER_SIZE);
-
-//         // Read command from socket
-//         ssize_t valread = read(client_fd, buffer, BUFFER_SIZE - 1);
-//         if (valread <= 0) {
-//             printf("[INFO] Client disconnected.\n");
-//             break;
-//         }
-
-//         buffer[strcspn(buffer, "\n")] = '\0'; // Remove newline if present
-//         printf("[RECEIVED] Received command: \"%s\" from client.\n", buffer);
-
-//         if (strcmp(buffer, "exit") == 0) {
-//             printf("[INFO] Exit command received. Closing connection.\n");
-//             break;
-//         }
-
-//         // Redirect output to pipe
-//         int pipefd[2];
-//         pipe(pipefd);
-
-//         pid_t pid = fork();
-
-//         if (pid == 0) {
-//             // Child process
-//             dup2(pipefd[1], STDOUT_FILENO);
-//             dup2(pipefd[1], STDERR_FILENO);
-//             close(pipefd[0]);
-//             close(pipefd[1]);
-//             execute_command(buffer); // Execute the received command
-//             exit(0);
-//         } else {
-//             // Parent process
-//             close(pipefd[1]);
-//             int status;
-//             waitpid(pid, &status, 0); // Wait for child process and get its status
-
-//             char output[BUFFER_SIZE] = {0};
-//             ssize_t output_len = read(pipefd[0], output, BUFFER_SIZE - 1);
-//             close(pipefd[0]);
-
-//             printf("[EXECUTING] Executing command: \"%s\".\n", buffer);
-//             if (WIFEXITED(status)) {
-//                 int exit_status = WEXITSTATUS(status);
-//                 if (exit_status == 127) { // Command not found
-//                     printf("[ERROR] Command not found: \"%s\".\n", buffer);
-
-//                     char error_msg[BUFFER_SIZE];
-//                     snprintf(error_msg, BUFFER_SIZE, "Command not found: %s", buffer);
-
-//                     printf("[OUTPUT] Sending output to client: \"%s\".\n", error_msg);
-//                     write(client_fd, error_msg, strlen(error_msg));
-//                 } else if (output_len > 0) { // Command executed successfully
-//                     output[output_len] = '\0';
-//                     printf("[OUTPUT] Sending output to client:\n%s\n", output);
-//                     write(client_fd, output, output_len);
-//                 }
-//             } else {
-//                 printf("[ERROR] Command execution failed unexpectedly.\n");
-//                 write(client_fd,
-//                     "[ERROR] Command execution failed unexpectedly.\n",
-//                     strlen("[ERROR] Command execution failed unexpectedly.\n"));
-//             }
-
-//         }
-//     }
-
-//     // Cleanup
-//     close(client_fd);
-//     close(server_fd);
-
-//     return 0;
-// }
-
-
-#include "executor.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <sys/wait.h>
-
-#define PORT 8080
-#define MAX_CMDS 10
-#define BUFFER_SIZE 4096
+#define PORT 8080 // Define the port number for the server
+#define MAX_CMDS 10 // Define the maximum number of commands that can be piped
+#define BUFFER_SIZE 4096 // Define the size of the buffer for reading and writing data
 
 int main() {
-    int server_fd, client_fd;
-    struct sockaddr_in address;
-    socklen_t addr_len = sizeof(address);
+    int server_fd, client_fd; // Declare variables for server and client file descriptors
+    struct sockaddr_in address; // Declare a structure for the server address
+    socklen_t addr_len = sizeof(address); // Declare and initialize the length of the server address structure
 
     // Socket setup
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-        perror("[ERROR] Socket creation failed");
-        exit(EXIT_FAILURE);
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) { // Attempt to create a socket
+        perror("[ERROR] Socket creation failed"); // Print error message if socket creation fails
+        exit(EXIT_FAILURE); // Exit the program if socket creation fails
     }
 
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
+    address.sin_family = AF_INET; // Set the address family to Internet
+    address.sin_addr.s_addr = INADDR_ANY; // Set the address to accept connections on all network interfaces
+    address.sin_port = htons(PORT); // Set the port number for the server
 
-    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("[ERROR] Bind failed");
-        exit(EXIT_FAILURE);
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) { // Attempt to bind the socket to the address and port
+        perror("[ERROR] Bind failed"); // Print error message if binding fails
+        exit(EXIT_FAILURE); // Exit the program if binding fails
     }
 
-    if (listen(server_fd, 3) < 0) {
-        perror("[ERROR] Listen failed");
-        exit(EXIT_FAILURE);
+    if (listen(server_fd, 3) < 0) { // Attempt to listen for incoming connections
+        perror("[ERROR] Listen failed"); // Print error message if listening fails
+        exit(EXIT_FAILURE); // Exit the program if listening fails
     }
 
-    printf("[INFO] Server started, waiting for client connections...\n");
+    printf("[INFO] Server started, waiting for client connections...\n"); // Print message indicating server is running and waiting for connections
 
-    if ((client_fd = accept(server_fd, (struct sockaddr *)&address, &addr_len)) < 0) {
-        perror("[ERROR] Accept failed");
-        exit(EXIT_FAILURE);
+    if ((client_fd = accept(server_fd, (struct sockaddr *)&address, &addr_len)) < 0) { // Attempt to accept an incoming connection
+        perror("[ERROR] Accept failed"); // Print error message if accepting a connection fails
+        exit(EXIT_FAILURE); // Exit the program if accepting a connection fails
     }
 
-    printf("[INFO] Client connected.\n");
+    printf("[INFO] Client connected.\n"); // Print message indicating a client has connected
 
-    char buffer[BUFFER_SIZE] = {0};
+    char buffer[BUFFER_SIZE] = {0}; // Declare and initialize a buffer for reading data
 
     while (1) {
-        memset(buffer, 0, BUFFER_SIZE);
+        memset(buffer, 0, BUFFER_SIZE); // Clear the buffer before each read operation
 
-        ssize_t valread = read(client_fd, buffer, BUFFER_SIZE - 1);
-        if (valread <= 0) {
-            printf("[INFO] Client disconnected.\n");
-            break;
+        ssize_t valread = read(client_fd, buffer, BUFFER_SIZE - 1); // Attempt to read data from the client
+        if (valread <= 0) { // Check if the read operation was successful
+            printf("[INFO] Client disconnected.\n"); // Print message indicating the client has disconnected
+            break; // Exit the loop if the client has disconnected
         }
 
-        buffer[strcspn(buffer, "\n")] = '\0';
-        printf("[RECEIVED] Received command: \"%s\" from client.\n", buffer);
+        buffer[strcspn(buffer, "\n")] = '\0'; // Remove the newline character from the end of the buffer
+        printf("[RECEIVED] Received command: \"%s\" from client.\n", buffer); // Print the received command
 
-        if (strcmp(buffer, "exit") == 0) {
-            printf("[INFO] Exit command received. Closing connection.\n");
-            break;
+        if (strcmp(buffer, "exit") == 0) { // Check if the received command is "exit"
+            printf("[INFO] Exit command received. Closing connection.\n"); // Print message indicating the exit command was received
+            break; // Exit the loop if the exit command was received
         }
 
-        char *commands[MAX_CMDS];
-        int cmd_count = 0;
-        char *cmd = strtok(buffer, "|");
-        int error_detected = 0; // flag for explicit error detection
+        char *commands[MAX_CMDS]; // Declare an array to hold the parsed commands
+        int cmd_count = 0; // Initialize the command count to 0
+        char *cmd = strtok(buffer, "|"); // Split the buffer into individual commands separated by pipes
+        int error_detected = 0; // Flag to detect errors in command parsing
 
-        while (cmd && cmd_count < MAX_CMDS) {
-            
-
-            // Trim whitespace explicitly
+        while (cmd && cmd_count < MAX_CMDS) { // Loop through each command
+            // Trim whitespace from the command
             while (*cmd == ' ') cmd++;
             char *end = cmd + strlen(cmd) - 1;
             while (end > cmd && *end == ' ') end--;
             *(end + 1) = '\0';
 
-            // After trimming, check again explicitly for empty commands
+            // Check if the command is not empty after trimming
             if (strlen(cmd) == 0) {
-                error_detected = 1;
-                break;
+                error_detected = 1; // Set the error flag if an empty command is found
+                break; 
             }
 
-            commands[cmd_count++] = cmd;
-            cmd = strtok(NULL, "|");
+            commands[cmd_count++] = cmd; // Add the command to the array if it's not empty
+            cmd = strtok(NULL, "|"); // Move to the next command
         }
 
-        // Explicitly handle detected errors immediately:
+        // Handle errors detected during command parsing
         if (error_detected || cmd_count == 0 || buffer[0] == '|') {
-            char *error_message;
+            char *error_message; // Declare a pointer to hold the error message
 
+            // Determine the appropriate error message based on the error condition
             if (buffer[0] == '|') {
                 error_message = "Error: Missing command before pipe.\n";
             } else if (cmd_count > 0 && strlen(commands[cmd_count - 1]) == 0) {
@@ -432,68 +181,68 @@ int main() {
                 error_message = "Error: Empty command between pipes.\n";
             }
 
-            fprintf(stderr, "[ERROR] %s", error_message);
-            write(client_fd, error_message, strlen(error_message));
-            printf("[OUTPUT] Sending error message to client: \"%s\"\n", error_message);
-            continue;
+            fprintf(stderr, "[ERROR] %s", error_message); // Print the error message to the standard error
+            write(client_fd, error_message, strlen(error_message)); // Send the error message to the client
+            printf("[OUTPUT] Sending error message to client: \"%s\"\n", error_message); 
+            continue; // Skip to the next iteration of the loop
         }
 
+        if (cmd_count == 0) continue; // Skip to the next iteration if no valid commands were found
 
-        if (cmd_count == 0) continue;
-        
-
-        printf("[EXECUTING] Executing command: \"%s\"\n", buffer);
+        printf("[EXECUTING] Executing command: \"%s\"\n", buffer); // Print message indicating the command is being executed
 
         // Setup pipe to capture both stdout and stderr dynamically
-        int pipefd[2];
-        if (pipe(pipefd) < 0) {
-            perror("[ERROR] Pipe creation failed");
-            continue;
+        int pipefd[2]; // Declare an array to hold the pipe file descriptors
+        if (pipe(pipefd) < 0) { // Attempt to create a pipe
+            perror("[ERROR] Pipe creation failed"); // Print error message if pipe creation fails
+            continue; // Skip to the next iteration if pipe creation fails
         }
 
-        pid_t pid = fork();
-        if (pid == 0) {
-            // Child process: Redirect stdout and stderr to pipe
+        pid_t pid = fork(); // Attempt to fork a new process
+
+        if (pid == 0) { // Child process
+            // Redirect stdout and stderr to the pipe
             dup2(pipefd[1], STDOUT_FILENO);
             dup2(pipefd[1], STDERR_FILENO);
             close(pipefd[0]);
             close(pipefd[1]);
 
-            int exit_status;
+            int exit_status; // Declare a variable to hold the exit status of the command
+
+            // Execute the command(s) based on the number of commands
             if (cmd_count == 1) {
                 exit_status = execute_command(commands[0]);
             } else {
                 exit_status = execute_piped_commands(commands, cmd_count);
             }
 
-            exit(exit_status); 
-
-        } else {
+            exit(exit_status); // Exit the child process with the appropriate status
+        } else { // Parent process
             // Parent process: capture output and error dynamically
-            close(pipefd[1]);
+            close(pipefd[1]); // Close the write end of the pipe
 
-            int status;
-            waitpid(pid, &status, 0);
+            int status; // Declare a variable to hold the status of the child process
+            waitpid(pid, &status, 0); // Wait for the child process to finish
 
-            char output[BUFFER_SIZE] = {0};
-            ssize_t output_len = read(pipefd[0], output, BUFFER_SIZE - 1);
-            close(pipefd[0]);
+            char output[BUFFER_SIZE] = {0}; // Declare a buffer to hold the output
+            ssize_t output_len = read(pipefd[0], output, BUFFER_SIZE - 1); // Attempt to read the output from the pipe
+            close(pipefd[0]); // Close the read end of the pipe
 
-            // Dynamically handle errors based on child's exit status
+            // Dynamically handle errors based on the child's exit status
             if (WIFEXITED(status) && WEXITSTATUS(status) == 127) {
-                printf("[ERROR] %s\n", output);
-                write(client_fd, output, strlen(output));
-                printf("[OUTPUT] Sending error message to client: \"%s\"\n", output);
+                printf("[ERROR] %s\n", output); // Print the error message if the child process exited with status 127
+                write(client_fd, output, strlen(output)); // Send the error message to the client
+                printf("[OUTPUT] Sending error message to client: \"%s\"\n", output); // Print message indicating an error message was sent to the client
             } else {
-                write(client_fd, output, output_len);
-                printf("[OUTPUT] Sending output to client:\n%s\n", output);
+                write(client_fd, output, output_len); // Send the output to the client
+                printf("[OUTPUT] Sending output to client:\n%s\n", output); // Print message indicating output was sent to the client
             }
         }
     }
 
     // Cleanup
-    close(client_fd);
-    close(server_fd);
+    close(client_fd); // Close the client file descriptor
+    close(server_fd); // Close the server file descriptor
 
-    return 0;
+    return 0; 
 }
