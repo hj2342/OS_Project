@@ -62,7 +62,7 @@ int main() {
         }
 
         // Display output from server
-        printf("%s\n", server_response);
+        printf("%s", server_response);
     }
 
     close(sock);
