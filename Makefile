@@ -1,7 +1,8 @@
 all: server client
 
-server: main.o command_parser.o executor.o
-	gcc -Wall -Wextra -g -o server main.o command_parser.o executor.o
+server: main.o command_parser.o executor.o client_handler.o
+	gcc -Wall -Wextra -g -o server main.o command_parser.o executor.o client_handler.o -lpthread
+
 
 client: client.o
 	gcc -Wall -Wextra -g -o client client.o
@@ -17,6 +18,10 @@ executor.o: executor.c
 
 client.o: client.c
 	gcc -Wall -Wextra -g -c client.c
+
+client_handler.o: client_handler.c client_handler.h
+	gcc -Wall -Wextra -g -c client_handler.c
+
 
 clean:
 	rm -f *.o server client
