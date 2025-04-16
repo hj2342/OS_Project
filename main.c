@@ -346,6 +346,8 @@
 // }
 
 int main() {
+    int client_counter = 0;
+    pthread_mutex_t counter_lock = PTHREAD_MUTEX_INITIALIZER;
     int server_fd;
     struct sockaddr_in address;
     socklen_t addr_len = sizeof(address);
@@ -372,22 +374,50 @@ int main() {
     printf("[INFO] Server started. Waiting for client connections on port %d...\n", PORT);
 
     while (1) {
-        int *client_fd = malloc(sizeof(int));
-        *client_fd = accept(server_fd, (struct sockaddr *)&address, &addr_len);
+    //     int *client_fd = malloc(sizeof(int));
+    //     *client_fd = accept(server_fd, (struct sockaddr *)&address, &addr_len);
 
-        if (*client_fd < 0) {
+    //     if (*client_fd < 0) {
+    //         perror("[ERROR] Accept failed");
+    //         free(client_fd);
+    //         continue;
+    //     }
+
+    //     printf("[INFO] Client connected.\n");
+
+    //     pthread_t tid;
+    //     if (pthread_create(&tid, NULL, handle_client, client_fd) != 0) {
+    //         perror("[ERROR] Failed to create thread");
+    //         close(*client_fd);
+    //         free(client_fd);
+    //     } else {
+    //         pthread_detach(tid);
+    //     }
+    // }
+        client_info *info = malloc(sizeof(client_info));
+        info->client_fd = accept(server_fd, (struct sockaddr *)&info->client_addr, &addr_len);
+
+        if (info->client_fd < 0) {
             perror("[ERROR] Accept failed");
-            free(client_fd);
+            free(info);
             continue;
         }
 
-        printf("[INFO] Client connected.\n");
+        // Assign unique client number
+        pthread_mutex_lock(&counter_lock);
+        info->client_number = ++client_counter;
+        pthread_mutex_unlock(&counter_lock);
+
+        char ip[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(info->client_addr.sin_addr), ip, INET_ADDRSTRLEN);
+        int port = ntohs(info->client_addr.sin_port);
+        printf("[INFO] Client connected: [Client #%d - %s:%d]\n", info->client_number, ip, port);
 
         pthread_t tid;
-        if (pthread_create(&tid, NULL, handle_client, client_fd) != 0) {
-            perror("[ERROR] Failed to create thread");
-            close(*client_fd);
-            free(client_fd);
+        if (pthread_create(&tid, NULL, handle_client, info) != 0) {
+            perror("[ERROR] Thread creation failed");
+            close(info->client_fd);
+            free(info);
         } else {
             pthread_detach(tid);
         }

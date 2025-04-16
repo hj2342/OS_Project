@@ -7,27 +7,38 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
 
 #define BUFFER_SIZE 4096
 #define MAX_CMDS 10
 
 void *handle_client(void *arg) {
-    int client_fd = *((int *)arg);
-    free(arg);
+    client_info *info = (client_info *)arg;
+    int client_fd = info->client_fd;
+    int client_number = info->client_number;
+    struct sockaddr_in client_addr = info->client_addr;
+
+    // Convert IP and port to readable strings
+    char ip[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &(client_addr.sin_addr), ip, INET_ADDRSTRLEN);
+    int port = ntohs(client_addr.sin_port);
+
+    free(info); // Free memory allocated in main
+
     char buffer[BUFFER_SIZE] = {0};
 
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
         ssize_t valread = read(client_fd, buffer, BUFFER_SIZE - 1);
         if (valread <= 0) {
-            printf("[INFO] Client disconnected.\n");
+            printf("[INFO] [Client #%d - %s:%d] Client disconnected.\n", client_number, ip, port);
             break;
         }
 
         buffer[strcspn(buffer, "\r\n")] = '\0';
 
         int all_whitespace = 1, has_control = 0;
-        for (int i = 0; i < strlen(buffer); i++) {
+        for (size_t i = 0; i < strlen(buffer); i++) {
             if (buffer[i] < 32 || buffer[i] == 127) has_control = 1;
             if (buffer[i] != ' ') all_whitespace = 0;
         }
@@ -35,14 +46,14 @@ void *handle_client(void *arg) {
         if (strlen(buffer) == 0 || all_whitespace || has_control) {
             const char *err_msg = "Error: Invalid or unsupported input.\n";
             write(client_fd, err_msg, strlen(err_msg));
-            printf("[WARNING] Ignored invalid input: \"%s\"\n", buffer);
+            printf("[WARNING] [Client #%d - %s:%d] Ignored invalid input: \"%s\"\n", client_number, ip, port, buffer);
             continue;
         }
 
-        printf("[RECEIVED] Received command: \"%s\" from client.\n", buffer);
+        printf("[RECEIVED]  [Client #%d - %s:%d] Received command: \"%s\"\n", client_number, ip, port, buffer);
 
         if (strcmp(buffer, "exit") == 0) {
-            printf("[INFO] Exit command received. Closing client connection.\n");
+            printf("[INFO] [Client #%d - %s:%d] Exit command received. Closing connection.\n", client_number, ip, port);
             break;
         }
 
@@ -69,9 +80,9 @@ void *handle_client(void *arg) {
             cmd = strtok(NULL, "|");
         }
 
-        if (error_detected || cmd_count == 0 || buffer[0] == '|') {
+        if (error_detected || cmd_count == 0 || original_cmd[0] == '|') {
             const char *error_message;
-            if (buffer[0] == '|') {
+            if (original_cmd[0] == '|') {
                 error_message = "Error: Missing command before pipe.\n";
             } else if (cmd_count > 0 && strlen(commands[cmd_count - 1]) == 0) {
                 error_message = "Error: Missing command after pipe.\n";
@@ -79,9 +90,9 @@ void *handle_client(void *arg) {
                 error_message = "Error: Empty command between pipes.\n";
             }
 
-            fprintf(stderr, "[ERROR] %s", error_message);
+            fprintf(stderr, "[ERROR] [Client #%d - %s:%d] %s", client_number, ip, port, error_message);
             write(client_fd, error_message, strlen(error_message));
-            printf("[OUTPUT] Sending error message to client: \"%s\"\n", error_message);
+            printf("[OUTPUT]    [Client #%d - %s:%d] Sending error message to client: \"%s\"\n", client_number, ip, port, error_message);
             continue;
         }
 
@@ -98,7 +109,7 @@ void *handle_client(void *arg) {
             close(pipefd[0]);
             close(pipefd[1]);
 
-            printf("[EXECUTING] Executing command: \"%s\"\n", original_cmd);
+            printf("[EXECUTING] [Client #%d - %s:%d] Executing command: \"%s\"\n", client_number, ip, port, original_cmd);
             execlp("sh", "sh", "-c", original_cmd, (char *)NULL);
             perror("execlp");
             exit(1);
@@ -125,10 +136,10 @@ void *handle_client(void *arg) {
                 if (total_len == 0) {
                     const char *msg = "[INFO] Command executed with no output.\n";
                     write(client_fd, msg, strlen(msg));
-                    printf("[OUTPUT] Sending message to client: \"%s\"\n", msg);
+                    printf("[OUTPUT]    [Client #%d - %s:%d] Command executed with no output.\n", client_number, ip, port);
                 } else {
                     write(client_fd, output, total_len);
-                    printf("[OUTPUT] Sending output to client:\n%.*s\n", total_len, output);
+                    printf("[OUTPUT]    [Client #%d - %s:%d] Sending output to client:\n%.*s\n", client_number, ip, port, total_len, output);
                 }
             }
         }
