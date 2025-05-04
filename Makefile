@@ -1,28 +1,37 @@
+# Compiler flags
+CC = gcc
+CFLAGS = -Wall -Wextra -g -I.
+LDFLAGS = -lpthread
+
+# Targets
 all: server client
 
-server: main.o command_parser.o executor.o client_handler.o
-	gcc -Wall -Wextra -g -o server main.o command_parser.o executor.o client_handler.o -lpthread
-
+server: main.o command_parser.o executor.o client_handler.o scheduler.o
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 client: client.o
-	gcc -Wall -Wextra -g -o client client.o
+	$(CC) $(CFLAGS) -o $@ $^
 
-main.o: main.c
-	gcc -Wall -Wextra -g -c main.c
+# Object file rules
+main.o: main.c client_handler.h scheduler.h
+	$(CC) $(CFLAGS) -c $<
 
-command_parser.o: command_parser.c
-	gcc -Wall -Wextra -g -c command_parser.c
+command_parser.o: command_parser.c command_parser.h
+	$(CC) $(CFLAGS) -c $<
 
-executor.o: executor.c
-	gcc -Wall -Wextra -g -c executor.c
+executor.o: executor.c executor.h command_parser.h
+	$(CC) $(CFLAGS) -c $<
+
+client_handler.o: client_handler.c client_handler.h scheduler.h
+	$(CC) $(CFLAGS) -c $<
+
+scheduler.o: scheduler.c scheduler.h client_handler.h
+	$(CC) $(CFLAGS) -c $<
 
 client.o: client.c
-	gcc -Wall -Wextra -g -c client.c
+	$(CC) $(CFLAGS) -c $<
 
-client_handler.o: client_handler.c client_handler.h
-	gcc -Wall -Wextra -g -c client_handler.c
-
-
+# Utility targets
 clean:
 	rm -f *.o server client
 
@@ -31,3 +40,5 @@ run_server:
 
 run_client:
 	./client
+
+.PHONY: all clean run_server run_client
