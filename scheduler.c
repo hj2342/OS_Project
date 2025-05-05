@@ -9,10 +9,20 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <limits.h>
+#include <time.h>
 
 Queue* task_queue = NULL;
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_not_empty = PTHREAD_COND_INITIALIZER;
+static pthread_t scheduler_thread;
+
+// Function declarations
+void execute_program_task(Task* task, int quantum);
+void execute_shell_task(Task* task);
+void* scheduler_thread_func(void* arg);
+void init_scheduler(void);
+void add_task(TaskType type, client_info* info);
+void* scheduler_loop(void* arg);
 
 // Queue implementation
 Queue* create_queue() {
@@ -25,7 +35,6 @@ Queue* create_queue() {
 }
 
 void enqueue(Queue* q, Task task) {
-    printf("[QUEUE] Attempting to enqueue task...\n");
     pthread_mutex_lock(&q->lock);
     Node* newNode = malloc(sizeof(Node));
     if (!newNode) {
@@ -42,7 +51,6 @@ void enqueue(Queue* q, Task task) {
         q->front = q->rear = newNode;
     }
     pthread_cond_signal(&q->not_empty);
-    printf("[QUEUE] Task enqueued and signal sent\n");
     pthread_mutex_unlock(&q->lock);
 }
 
@@ -191,92 +199,97 @@ void update_task_metrics(Task* task, int executed_time) {
 }
 
 void execute_program_task(Task* task, int quantum) {
-    printf("[SCHEDULER] Executing program task: %s (quantum=%d)\n", 
-           task->command, quantum);
+    printf("\033[34m[%d]--- created (%d)\033[0m\n", 
+           task->client_number, task->remaining_time);
+
+    printf("\033[32m[%d]--- started (%d)\033[0m\n", 
+           task->client_number, task->remaining_time);
+
+    int to_execute = (task->remaining_time < quantum) ? 
+                    task->remaining_time : quantum;
     
-    int executed = 0;
-    int to_execute = (quantum < task->remaining_time) ? quantum : task->remaining_time;
-    
-    for (int i = 0; i < to_execute; i++) {
-        // Simulate one unit of execution
+    for (int i = 0; i < to_execute && task->remaining_time > 0; i++) {
+        printf("\033[33m[%d]--- running (%d)\033[0m\n", 
+               task->client_number, task->remaining_time);
+
+        // Send progress to client
+        char progress[50];
+        snprintf(progress, sizeof(progress), "Demo %d/%d\n", 
+                 task->total_executed + i + 1, 
+                 task->remaining_time + task->total_executed);
+        write(task->client_fd, progress, strlen(progress));
+        
         sleep(1);
-        executed++;
-        
-        // Generate iteration message
-        char iteration_msg[100];
-        int len = snprintf(iteration_msg, sizeof(iteration_msg),
-                          "[%s] Iteration %d (remaining: %d)\n", 
-                          task->command,
-                          task->total_executed + executed,
-                          task->remaining_time - executed);
-        
-        // Send to client
-        write(task->client_fd, iteration_msg, len);
+        task->remaining_time--;
     }
-    
-    // Update task metrics
-    update_task_metrics(task, executed);
-    task->last_quantum = quantum; printf("[SCHEDULER] Program execution round complete. Remaining time: %d\n",
-           task->remaining_time);
+
+    task->total_executed += to_execute;
+    task->execution_rounds++;
+
+    if (task->remaining_time > 0) {
+        printf("\033[35m[%d]--- waiting (%d)\033[0m\n", 
+               task->client_number, task->remaining_time);
+    } else {
+        printf("\033[31m[%d]--- ended (0)\033[0m\n", 
+               task->client_number);
+    }
 }
 
-// Execute a shell task
 void execute_shell_task(Task* task) {
-    printf("[SCHEDULER] Executing shell command: %s\n", task->command);
+    printf("%s[%d]--- created (-1)%s\n", 
+           COLOR_CYAN, task->client_number, COLOR_RESET);
+    printf("%s[%d]--- started (-1)%s\n", 
+           COLOR_GREEN, task->client_number, COLOR_RESET);
     
     int pipefd[2];
     if (pipe(pipefd) == -1) {
-        perror("[ERROR] Pipe creation failed");
+        perror("pipe");
         return;
     }
 
     pid_t pid = fork();
     if (pid == -1) {
-        perror("[ERROR] Fork failed");
+        perror("fork");
         close(pipefd[0]);
         close(pipefd[1]);
         return;
     }
 
-    if (pid == 0) { // Child process
-        close(pipefd[0]);
+    if (pid == 0) {  // Child process
+        close(pipefd[0]);  // Close read end
         dup2(pipefd[1], STDOUT_FILENO);
         dup2(pipefd[1], STDERR_FILENO);
         close(pipefd[1]);
 
-        // Execute the command
-        char* args[] = {"sh", "-c", task->command, NULL};
-        execvp("sh", args);
-        perror("[ERROR] Failed to execute command");
+        // Execute command
+        char* args[] = {"/bin/sh", "-c", task->command, NULL};
+        execv("/bin/sh", args);
+        perror("execv");
         exit(1);
-    }
-
-    // Parent process
-    close(pipefd[1]);  // Close write end immediately
-    
-    // Read and forward output to client
-    char buffer[BUFFER_SIZE];
-    ssize_t n;
-    int status;
-
-    // Read until pipe is empty
-    while ((n = read(pipefd[0], buffer, BUFFER_SIZE-1)) > 0) {
-        if (write(task->client_fd, buffer, n) != n) {
-            perror("[ERROR] Failed to write to client");
-            break;
+    } else {  // Parent process
+        close(pipefd[1]);  // Close write end
+        
+        char buffer[1024];
+        ssize_t bytes_read;
+        size_t total_bytes = 0;
+        
+        // Read and send output to client
+        while ((bytes_read = read(pipefd[0], buffer, sizeof(buffer))) > 0) {
+            write(task->client_fd, buffer, bytes_read);
+            total_bytes += bytes_read;
         }
+        
+        close(pipefd[0]);
+        waitpid(pid, NULL, 0);
+        
+        // Send bytes sent message
+        char msg[50];
+        snprintf(msg, sizeof(msg), "<<< %zu bytes sent\n", total_bytes);
+        write(task->client_fd, msg, strlen(msg));
+        
+        printf("%s[%d]--- ended (-1)%s\n", 
+               COLOR_RED, task->client_number, COLOR_RESET);
     }
-    
-    close(pipefd[0]);  // Close read end
-    
-    // Wait for child and get exit status
-    waitpid(pid, &status, 0);
-    
-    printf("[SCHEDULER] Shell command completed with status %d\n", 
-           WEXITSTATUS(status));
-    
-    // Send termination signal
-    write(task->client_fd, "\n", 1);
 }
 
 void* scheduler_thread_func(void* arg) {
@@ -350,19 +363,16 @@ void* scheduler_thread_func(void* arg) {
 }
 
 void init_scheduler() {
-    printf("[INIT] Creating scheduler...\n");
     task_queue = create_queue();
     if (!task_queue) {
         fprintf(stderr, "Failed to create task queue\n");
         exit(1);
     }
     
-    printf("[INIT] Creating scheduler thread...\n");
     if (pthread_create(&scheduler_thread, NULL, scheduler_thread_func, NULL) != 0) {
         fprintf(stderr, "Failed to create scheduler thread\n");
         exit(1);
     }
-    printf("[INIT] Scheduler thread created successfully\n");
 }
 
 void add_task(TaskType type, client_info *info) {
@@ -404,11 +414,8 @@ void* scheduler_loop(void* arg) {
     Task* last_executed = NULL;
 
     while (1) {
-        printf("[SCHEDULER] Round %d: Checking queue...\n", current_round);
-
         pthread_mutex_lock(&queue_mutex);
         if (is_empty(task_queue)) {
-            printf("[SCHEDULER] Queue empty, waiting for tasks...\n");
             pthread_cond_wait(&queue_not_empty, &queue_mutex);
         }
 
@@ -423,7 +430,9 @@ void* scheduler_loop(void* arg) {
             remove_task(task_queue, to_execute);
             pthread_mutex_unlock(&queue_mutex);
             execute_shell_task(to_execute);
-            current_round++;
+            // Print summary for shell command
+            printf("%s[%d] = (%d) -> (-1) = (-1) -> (1)%s\n", 
+                   BG_BLUE, current_round++, to_execute->client_number, COLOR_RESET);
             continue;
         }
 
@@ -432,7 +441,6 @@ void* scheduler_loop(void* arg) {
         if (shortest && shortest != to_execute && 
             should_preempt(to_execute, shortest)) {
             to_execute = shortest;
-            printf("[SCHEDULER] Preempting current task for shorter task\n");
         }
 
         // Remove the task from queue
@@ -445,18 +453,20 @@ void* scheduler_loop(void* arg) {
         
         // Re-enqueue if task not complete
         if (to_execute->remaining_time > 0) {
-            printf("[SCHEDULER] Re-enqueueing task with %d time remaining\n", 
-                   to_execute->remaining_time);
             pthread_mutex_lock(&queue_mutex);
             enqueue(task_queue, *to_execute);
             pthread_mutex_unlock(&queue_mutex);
         }
 
-        // Update scheduling state
+        // Update scheduling state and print summary
         last_executed = to_execute;
-        current_round++;
-
-        printf("[SCHEDULER] Round %d completed\n", current_round);
+        printf("%s[%d] = (%d) -> (%d) = (%d) -> (%d)%s\n", 
+               BG_BLUE, current_round++, 
+               to_execute->client_number,
+               to_execute->total_executed,
+               to_execute->remaining_time,
+               to_execute->execution_rounds,
+               COLOR_RESET);
     }
     return NULL;
 }

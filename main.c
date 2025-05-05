@@ -118,29 +118,17 @@
 int main() {
     int server_fd;
     struct sockaddr_in address;
-    socklen_t addr_len = sizeof(address);
-    int client_counter = 0;
-    pthread_mutex_t counter_lock = PTHREAD_MUTEX_INITIALIZER;
-
-    // Initialize the scheduler and start the scheduler thread
-    init_scheduler();
-    pthread_t scheduler_thread;
-    if (pthread_create(&scheduler_thread, NULL, scheduler_loop, NULL) != 0) {
-        perror("[ERROR] Failed to create scheduler thread");
-        exit(EXIT_FAILURE);
-    }
-    pthread_detach(scheduler_thread);
-
-    // Create server socket
-    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("[ERROR] Socket creation failed");
-        exit(EXIT_FAILURE);
-    }
-
     int opt = 1;
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
-        perror("[ERROR] setsockopt failed");
-        close(server_fd);
+
+    // Create socket file descriptor
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Set socket options
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt))) {
+        perror("setsockopt");
         exit(EXIT_FAILURE);
     }
 
@@ -148,54 +136,54 @@ int main() {
     address.sin_addr.s_addr = INADDR_ANY;
     address.sin_port = htons(PORT);
 
+    // Bind socket to port
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        perror("[ERROR] Bind failed");
-        close(server_fd);
+        perror("bind failed");
         exit(EXIT_FAILURE);
     }
 
-    if (listen(server_fd, 10) < 0) {
-        perror("[ERROR] Listen failed");
-        close(server_fd);
+    // Listen for connections
+    if (listen(server_fd, 3) < 0) {
+        perror("listen");
         exit(EXIT_FAILURE);
     }
 
-    printf("[INFO] Server started. Waiting for client connections on port %d...\n", PORT);
+    printf("Hello, Server Started\n");
 
-    // Main server loop to accept and handle client connections
+    // Initialize scheduler
+    init_scheduler();
+
+    int client_number = 1;
     while (1) {
-        client_info *info = malloc(sizeof(client_info));
+        struct sockaddr_in client_addr;
+        socklen_t client_addr_len = sizeof(client_addr);
+        int client_fd;
+
+        if ((client_fd = accept(server_fd, (struct sockaddr *)&client_addr, &client_addr_len)) < 0) {
+            perror("accept");
+            continue;
+        }
+
+        // Create client info structure
+        client_info* info = malloc(sizeof(client_info));
         if (!info) {
-            perror("[ERROR] malloc failed");
-            continue;
-        }
-        info->client_fd = accept(server_fd, (struct sockaddr *)&info->client_addr, &addr_len);
-        if (info->client_fd < 0) {
-            perror("[ERROR] Accept failed");
-            free(info);
+            perror("malloc failed");
+            close(client_fd);
             continue;
         }
 
-        pthread_mutex_lock(&counter_lock);
-        info->client_number = ++client_counter;
-        pthread_mutex_unlock(&counter_lock);
+        info->client_fd = client_fd;
+        info->client_addr = client_addr;
+        info->client_number = client_number++;
 
-        char ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &(info->client_addr.sin_addr), ip, INET_ADDRSTRLEN);
-        int port = ntohs(info->client_addr.sin_port);
-
-        printf("[INFO] Client connected: [Client #%d - %s:%d]\n", info->client_number, ip, port);
-
-        // For Phase 4, add the client task to the scheduler queue
-        // If you want to handle shell commands immediately, you can still create a thread,
-        // but for demo/program tasks, the scheduler will manage them.
-        pthread_t tid;
-        if (pthread_create(&tid, NULL, handle_client, info) != 0) {
-            perror("[ERROR] Thread creation failed");
+        // Create thread to handle client
+        pthread_t thread_id;
+        if (pthread_create(&thread_id, NULL, handle_client, (void*)info) != 0) {
+            perror("pthread_create failed");
             close(info->client_fd);
             free(info);
         } else {
-            pthread_detach(tid);
+            pthread_detach(thread_id);
         }
     }
 
