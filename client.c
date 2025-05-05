@@ -4,6 +4,10 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/time.h>
 
 #define PORT 8080
 #define BUFFER_SIZE 4096
@@ -12,7 +16,7 @@ int main() {
     int sock;
     struct sockaddr_in server_addr;
     char command[BUFFER_SIZE];
-    char server_response[BUFFER_SIZE];
+
 
     // Create socket
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -53,16 +57,77 @@ int main() {
             break;
         }
 
+        // Set a timeout for receiving response
+        struct timeval tv;
+        tv.tv_sec = 1;  // 1 second timeout
+        tv.tv_usec = 0;
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+
         // Receive output from server
-        memset(server_response, 0, BUFFER_SIZE);
-        int bytes_received = recv(sock, server_response, BUFFER_SIZE - 1, 0);
-        if (bytes_received <= 0) {
-            printf("Connection closed by server or error occurred.\n");
-            break;
+        // Check if command has redirection
+        int has_redirection = (strchr(command, '>') != NULL);
+
+        // Always use blocking I/O
+        int flags = fcntl(sock, F_GETFL, 0);
+        fcntl(sock, F_SETFL, flags & ~O_NONBLOCK);
+
+        // Set timeout based on command type
+        int is_program = strncmp(command, "./", 2) == 0;
+        struct timeval cmd_timeout = {
+            .tv_sec = is_program ? 5 : 1,  // 5s for programs, 1s for shell commands
+            .tv_usec = 0
+        };
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &cmd_timeout, sizeof(cmd_timeout));
+
+        // Read response from server
+        char response[BUFFER_SIZE];
+        ssize_t total_received = 0;
+        ssize_t bytes_received = 0;
+        int newline_count = 0;
+
+        while (1) {
+            bytes_received = recv(sock, response, BUFFER_SIZE - 1, 0);
+            
+            if (bytes_received > 0) {
+                // Count newlines to detect end of output
+                for (int i = 0; i < bytes_received; i++) {
+                    if (response[i] == '\n') newline_count++;
+                }
+
+                // Write output
+                write(STDOUT_FILENO, response, bytes_received);
+                total_received += bytes_received;
+
+                // For redirected commands or if we got a final newline, we're done
+                if (has_redirection || (bytes_received == 1 && response[0] == '\n')) {
+                    break;
+                }
+            } else if (bytes_received == 0) {
+                if (total_received == 0) {
+                    printf("No output from command.\n");
+                }
+                break;
+            } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Timeout - only exit if we've received something
+                if (total_received > 0 || has_redirection) {
+                    break;
+                }
+                continue;
+            } else if (errno != EINTR) {
+                perror("recv failed");
+                break;
+            }
         }
 
-        // Display output from server
-        printf("%s", server_response);
+        // Reset the timeout
+        tv.tv_sec = 0;
+        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv);
+
+        // Only break the main loop if there was an actual error
+        if (bytes_received < 0 && errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+            printf("Connection error: %s\n", strerror(errno));
+            break;
+        }
     }
 
     close(sock);

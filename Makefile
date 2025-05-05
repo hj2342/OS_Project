@@ -4,13 +4,16 @@ CFLAGS = -Wall -Wextra -g -I.
 LDFLAGS = -lpthread
 
 # Targets
-all: server client
+all: server client demo
 
 server: main.o command_parser.o executor.o client_handler.o scheduler.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 client: client.o
 	$(CC) $(CFLAGS) -o $@ $^
+
+demo: demo.c
+	$(CC) $(CFLAGS) -o $@ $<
 
 # Object file rules
 main.o: main.c client_handler.h scheduler.h
@@ -33,7 +36,7 @@ client.o: client.c
 
 # Utility targets
 clean:
-	rm -f *.o server client
+	rm -f *.o server client demo
 
 run_server:
 	./server

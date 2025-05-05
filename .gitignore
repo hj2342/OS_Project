@@ -1,0 +1,8 @@
+# windsurf rules
+.windsurfrules
+
+# Build artifacts
+*.o
+*.dSYM/
+server
+client
