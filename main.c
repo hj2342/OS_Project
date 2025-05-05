@@ -1,5 +1,8 @@
-// Include the necessary header files for the executor functions, standard input/output, standard library, string manipulation, socket operations, and thread operations
-#include "executor.h" // Include the header file for the executor functions
+// Include necessary header files
+#include "executor.h"
+#include "client_handler.h"
+#include "queue.h"
+#include "scheduler.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,7 +12,7 @@
 #include <netinet/in.h>
 #include <sys/wait.h>
 #include <pthread.h>
-#include "client_handler.h"
+#include <errno.h>
 
 
 // Define constants for the port number, maximum number of commands, and buffer size
@@ -22,6 +25,23 @@ int main() {
     // Initialize a counter for client connections and a mutex for thread-safe access
     int client_counter = 0;
     pthread_mutex_t counter_lock = PTHREAD_MUTEX_INITIALIZER;
+
+    // Create request queue
+    RequestQueue* request_queue = create_queue();
+    if (!request_queue) {
+        fprintf(stderr, "[ERROR] Failed to create request queue\n");
+        exit(EXIT_FAILURE);
+    }
+
+    // Initialize client handler with request queue
+    init_client_handler(request_queue);
+
+    // Initialize scheduler
+    if (init_scheduler(request_queue) != 0) {
+        fprintf(stderr, "[ERROR] Failed to initialize scheduler\n");
+        destroy_queue(request_queue);
+        exit(EXIT_FAILURE);
+    }
     // Create a socket for the server
     int server_fd;
     // Define the server address structure
@@ -94,7 +114,8 @@ int main() {
         }
     }
 
-    // Close the server socket
+    // Close the server socket and cleanup
     close(server_fd);
+    destroy_queue(request_queue);
     return 0;
 }

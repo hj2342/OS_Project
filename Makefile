@@ -1,33 +1,46 @@
-all: server client
+CC = gcc
+CFLAGS = -Wall -Wextra -g -pthread
+LDFLAGS = -pthread
 
-server: main.o command_parser.o executor.o client_handler.o
-	gcc -Wall -Wextra -g -o server main.o command_parser.o executor.o client_handler.o -lpthread
+# Source files
+SERVER_SRCS = main.c command_parser.c client_handler.c queue.c scheduler.c executor.c
+CLIENT_SRCS = client.c
 
+# Object files
+SERVER_OBJS = $(SRCS:.c=.o)
+CLIENT_OBJS = client.o
 
-client: client.o
-	gcc -Wall -Wextra -g -o client client.o
+# Executables
+SERVER = server
+CLIENT = client
 
-main.o: main.c
-	gcc -Wall -Wextra -g -c main.c
+all: $(SERVER) $(CLIENT)
 
-command_parser.o: command_parser.c
-	gcc -Wall -Wextra -g -c command_parser.c
+# Server build
+$(SERVER): $(SERVER_SRCS)
+	$(CC) $(CFLAGS) -o $@ $(SERVER_SRCS) $(LDFLAGS)
 
-executor.o: executor.c
-	gcc -Wall -Wextra -g -c executor.c
+# Client build
+$(CLIENT): $(CLIENT_SRCS)
+	$(CC) $(CFLAGS) -o $@ $(CLIENT_SRCS)
 
-client.o: client.c
-	gcc -Wall -Wextra -g -c client.c
-
-client_handler.o: client_handler.c client_handler.h
-	gcc -Wall -Wextra -g -c client_handler.c
-
-
+# Clean rule
 clean:
-	rm -f *.o server client
+	rm -f $(SERVER) $(CLIENT) *.o
+	rm -rf *.dSYM
 
-run_server:
-	./server
+# Run rules
+run_server: $(SERVER)
+	./$(SERVER)
 
-run_client:
-	./client
+run_client: $(CLIENT)
+	./$(CLIENT)
+
+# Development helper rules
+format:
+	clang-format -i *.c *.h
+
+valgrind: $(SERVER)
+	valgrind --leak-check=full --show-leak-kinds=all ./$(SERVER)
+
+.PHONY: all clean run_server run_client format valgrind
