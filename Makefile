@@ -6,7 +6,7 @@ LDFLAGS = -lpthread
 # Targets
 all: server client demo
 
-server: main.o command_parser.o executor.o client_handler.o scheduler.o
+server: main.o command_parser.o executor.o client_handler.o task.o queue.o task_executor.o scheduler.o gantt.o
 	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 client: client.o
@@ -28,7 +28,20 @@ executor.o: executor.c executor.h command_parser.h
 client_handler.o: client_handler.c client_handler.h scheduler.h
 	$(CC) $(CFLAGS) -c $<
 
-scheduler.o: scheduler.c scheduler.h client_handler.h
+# New modular files
+task.o: task.c task.h
+	$(CC) $(CFLAGS) -c $<
+
+queue.o: queue.c queue.h task.h
+	$(CC) $(CFLAGS) -c $<
+
+task_executor.o: task_executor.c task_executor.h task.h
+	$(CC) $(CFLAGS) -c $<
+
+scheduler.o: scheduler.c scheduler.h task.h queue.h task_executor.h client_handler.h
+	$(CC) $(CFLAGS) -c $<
+
+gantt.o: gantt.c gantt.h task.h
 	$(CC) $(CFLAGS) -c $<
 
 client.o: client.c

@@ -112,6 +112,9 @@
 #include <errno.h>
 #include "client_handler.h"
 #include "scheduler.h"
+#include "task.h"           // Include task.h for Task structure
+#include "queue.h"          // Include queue.h for queue operations
+#include "task_executor.h"  // Include task_executor.h for execution functions
 
 #define PORT 8080
 

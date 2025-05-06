@@ -74,32 +74,43 @@ int main() {
         // Set timeout based on command type
         int is_program = strncmp(command, "./", 2) == 0;
         struct timeval cmd_timeout = {
-            .tv_sec = is_program ? 5 : 1,  // 5s for programs, 1s for shell commands
+            .tv_sec = is_program ? 60 : 1,  // 60s for programs (to handle preemption), 1s for shell commands
             .tv_usec = 0
         };
+        struct timeval original_timeout = cmd_timeout;  // Keep original for resets
         setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &cmd_timeout, sizeof(cmd_timeout));
 
         // Read response from server
         char response[BUFFER_SIZE];
         ssize_t total_received = 0;
         ssize_t bytes_received = 0;
-        int newline_count = 0;
+        int task_completed = 0;
 
-        while (1) {
+        while (!task_completed) {
             bytes_received = recv(sock, response, BUFFER_SIZE - 1, 0);
             
             if (bytes_received > 0) {
-                // Count newlines to detect end of output
-                for (int i = 0; i < bytes_received; i++) {
-                    if (response[i] == '\n') newline_count++;
+                response[bytes_received] = '\0';
+                
+                // Check for status messages
+                if (strncmp(response, "[STATUS] ", 9) == 0) {
+                    if (strstr(response, "COMPLETED")) {
+                        task_completed = 1;
+                        continue;
+                    } else if (strstr(response, "PREEMPTED")) {
+                        // Task was preempted, reset timeout and keep waiting
+                        cmd_timeout = original_timeout;
+                        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &cmd_timeout, sizeof(cmd_timeout));
+                        continue;
+                    }
                 }
 
-                // Write output
+                // Write regular output
                 write(STDOUT_FILENO, response, bytes_received);
                 total_received += bytes_received;
 
-                // For redirected commands or if we got a final newline, we're done
-                if (has_redirection || (bytes_received == 1 && response[0] == '\n')) {
+                // For redirected commands, we're done after output
+                if (has_redirection) {
                     break;
                 }
             } else if (bytes_received == 0) {
@@ -108,8 +119,15 @@ int main() {
                 }
                 break;
             } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                // Timeout - only exit if we've received something
-                if (total_received > 0 || has_redirection) {
+                if (is_program) {
+                    if (!task_completed) {
+                        // Reset timeout and keep waiting
+                        cmd_timeout = original_timeout;
+                        setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &cmd_timeout, sizeof(cmd_timeout));
+                        continue;
+                    }
+                } else if (total_received > 0 || has_redirection) {
+                    // For non-program commands, exit if we've received something
                     break;
                 }
                 continue;

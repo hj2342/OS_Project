@@ -2,10 +2,9 @@
 #ifndef CLIENT_HANDLER_H
 #define CLIENT_HANDLER_H
 
+#include "task.h"         // Include task.h for Task structure and BUFFER_SIZE
 #include <sys/socket.h>    // Add network headers
 #include <netinet/in.h>    // For sockaddr_in
-
-#define BUFFER_SIZE 4096   // Move constant here
 
 typedef struct {
     int client_fd;
@@ -14,4 +13,4 @@ typedef struct {
 } client_info;
 
 void *handle_client(void *arg);
-#endif
+#endif /* CLIENT_HANDLER_H */
