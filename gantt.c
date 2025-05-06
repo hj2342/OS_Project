@@ -90,7 +90,6 @@ void print_gantt_chart() {
     }
     
     printf("\n\n");
-    printf("===== SCHEDULER GANTT CHART =====\n\n");
     
     // Print the compact Gantt chart with colors
     printf("Gantt Chart: ");

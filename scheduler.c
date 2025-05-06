@@ -136,11 +136,13 @@ void* scheduler_thread_func(void* arg) {
             int quantum = calculate_quantum(&task_to_execute);
             execute_program_task(&task_to_execute, quantum);
             
-            // Calculate actual execution duration (quantum or less if completed)
-            int duration = quantum;
-            if (task_to_execute.remaining_time == 0) {
-                // Task completed, might have used less than the full quantum
-                duration = quantum - task_to_execute.last_quantum;
+            // Calculate actual execution duration based on how much time was actually used
+            // The last_quantum field now contains the actual time used during execution
+            int duration = task_to_execute.last_quantum;
+            
+            // Ensure we have a valid duration (fallback to quantum if something went wrong)
+            if (duration <= 0) {
+                duration = quantum;
             }
             
             // Add program execution to Gantt chart

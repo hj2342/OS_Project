@@ -33,6 +33,7 @@ void execute_program_task(Task* task, int quantum) {
                     task->remaining_time : quantum;
     
     size_t total_bytes = 0;
+    int actual_time_used = 0;
     for (int i = 0; i < to_execute && task->remaining_time > 0; i++) {
         printf("\033[33m[%d]--- running (%d)\033[0m\n", 
                task->client_number, task->remaining_time);
@@ -50,10 +51,14 @@ void execute_program_task(Task* task, int quantum) {
         
         sleep(1);
         task->remaining_time--;
+        actual_time_used++;
     }
 
-    task->total_executed += to_execute;
+    task->total_executed += actual_time_used;
     task->execution_rounds++;
+    
+    // Store how much of the quantum was actually used
+    task->last_quantum = actual_time_used;
 
     if (task->remaining_time > 0) {
         printf("\033[35m[%d]--- waiting (%d)\033[0m\n", 
