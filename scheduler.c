@@ -68,17 +68,17 @@ Task* find_shortest_task(Queue* q, Task* last_executed) {
 
 void* scheduler_thread_func(void* arg) {
     (void)arg;  // Suppress unused parameter warning
-    printf("[SCHEDULER] Thread started\n");
+   // printf("[SCHEDULER] Thread started\n");
     int last_executed_client = -1; // Store client number instead of task pointer
     int current_round = 0;
 
     while (1) {
-        printf("[SCHEDULER] Round %d: Checking queue...\n", current_round);
+        //printf("[SCHEDULER] Round %d: Checking queue...\n", current_round);
 
         pthread_mutex_lock(&queue_mutex);
 
         while (is_empty(task_queue)) {
-            printf("[SCHEDULER] Queue empty, waiting for tasks...\n");
+            //printf("[SCHEDULER] Queue empty, waiting for tasks...\n");
             pthread_cond_wait(&queue_not_empty, &queue_mutex);
         }
 
@@ -96,7 +96,7 @@ void* scheduler_thread_func(void* arg) {
             Task* shortest = find_shortest_task(task_queue, NULL);
             
             if (should_preempt(front_task, shortest)) {
-                printf("[SCHEDULER] Preempting current task for shorter task\n");
+                //printf("[SCHEDULER] Preempting current task for shorter task\n");
                 // Get a copy of the shortest task
                 selected_node = NULL;
                 for (Node* temp = task_queue->front; temp != NULL; temp = temp->next) {
@@ -148,8 +148,8 @@ void* scheduler_thread_func(void* arg) {
             
             // Re-enqueue if task not complete
             if (task_to_execute.remaining_time > 0) {
-                printf("[SCHEDULER] Re-enqueueing task with %d time remaining\n", 
-                       task_to_execute.remaining_time);
+                //printf("[SCHEDULER] Re-enqueueing task with %d time remaining\n", 
+                //       task_to_execute.remaining_time);
                 pthread_mutex_lock(&queue_mutex);
                 enqueue(task_queue, task_to_execute);
                 pthread_mutex_unlock(&queue_mutex);
@@ -160,7 +160,7 @@ void* scheduler_thread_func(void* arg) {
         last_executed_client = task_to_execute.client_number;
         current_round++;
 
-        printf("[SCHEDULER] Round %d completed\n", current_round);
+        //printf("[SCHEDULER] Round %d completed\n", current_round);
         
         // Check if we should display the Gantt chart
         // Only display when queue is empty and we just completed a task

@@ -178,6 +178,9 @@ int main() {
         info->client_fd = client_fd;
         info->client_addr = client_addr;
         info->client_number = client_number++;
+        
+        // Log client connection with the required format
+        printf("[%d]<<< client connected\n", info->client_number);
 
         // Create thread to handle client
         pthread_t thread_id;

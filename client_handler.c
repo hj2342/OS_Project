@@ -29,6 +29,9 @@ void *handle_client(void *arg) {
     while ((valread = read(info->client_fd, buffer, BUFFER_SIZE - 1)) > 0) {
         buffer[valread] = '\0';
         buffer[strcspn(buffer, "\r\n")] = '\0';
+        
+        // Log the command with the required format
+        printf("[%d]>>> %s\n", info->client_number, buffer);
 
         // Check if this is a program execution command
         if (strncmp(buffer, "./", 2) == 0) {
