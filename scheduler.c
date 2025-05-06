@@ -174,6 +174,12 @@ void* scheduler_thread_func(void* arg) {
             // We just completed the last program task and queue is empty
             // Display the Gantt chart
             print_gantt_chart();
+            
+            // Reset the execution history for the next set of tasks
+            reset_execution_history();
+            
+            // Reset the current round counter as well
+            current_round = 0;
         }
     }
 
@@ -207,7 +213,9 @@ void add_task(TaskType type, client_info *info) {
         .arrival_time = time(NULL),
         .preempted = 0,
         .total_executed = 0,
-        .initial_n = 0  // Initialize to 0
+        .initial_n = 0,  // Initialize to 0
+        .last_quantum = 0,  // Initialize last_quantum to 0
+        .execution_history_count = 0  // Initialize execution history count to 0
     };
 
     // Extract duration from client buffer if it's a program task

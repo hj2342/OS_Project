@@ -16,6 +16,9 @@ typedef struct {
 // Initialize the execution history
 void init_execution_history();
 
+// Reset the execution history (clear all records)
+void reset_execution_history();
+
 // Add an execution record to the global history
 void add_execution_record(int client_number, int task_id, int start_time, int duration);
 

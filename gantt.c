@@ -30,6 +30,13 @@ void init_execution_history() {
     memset(execution_history.records, 0, sizeof(execution_history.records));
 }
 
+// Reset the execution history (clear all records)
+void reset_execution_history() {
+    execution_history.record_count = 0;
+    execution_history.current_round = 0;
+    memset(execution_history.records, 0, sizeof(execution_history.records));
+}
+
 // Add an execution record to the global history
 void add_execution_record(int client_number, int task_id, int start_time, int duration) {
     if (execution_history.record_count >= MAX_GLOBAL_RECORDS) {
