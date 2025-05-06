@@ -14,7 +14,7 @@ int main(int argc, char *argv[]) {
     }
 
     for (int i = 1; i <= n; i++) {
-        printf("Demo: Iteration %d of %d\n", i, n);
+        printf("Demo %d/%d\n", i, n);
         fflush(stdout);  // Ensure output is displayed immediately
         sleep(1);       // Sleep for 1 second between iterations
     }
